@@ -1,5 +1,8 @@
 use nannou::{prelude::*, winit::event::WindowEvent};
-use nannou_egui::{Egui, egui::{self, Slider}};
+use nannou_egui::{
+    egui::{self, Slider},
+    Egui,
+};
 
 fn main() {
     nannou::app(model).update(update).run();
@@ -11,6 +14,8 @@ struct Model {
     sides: i32,
     size: f32,
     width: f32,
+    angle: f32,
+    background_color: [f32; 3],
 }
 
 fn model(app: &App) -> Model {
@@ -26,7 +31,17 @@ fn model(app: &App) -> Model {
     let sides = 3;
     let size = 50.0;
     let width = 50.0;
-    Model { _window, ui, sides, size, width }
+    let angle = 0.0;
+    let background_color = [0.0; 3];
+    Model {
+        _window,
+        ui,
+        sides,
+        size,
+        width,
+        angle,
+        background_color,
+    }
 }
 
 fn update(_app: &App, model: &mut Model, _update: Update) {
@@ -35,9 +50,13 @@ fn update(_app: &App, model: &mut Model, _update: Update) {
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
-    draw.background().color(BLACK);
-
-    draw.ellipse().x_y(0., 0.).w_h(5., 5.).color(BLUE);
+    // TODO: Colors do not show as they do in the color picker
+    let background_color = Rgb::from_components((
+        model.background_color[0],
+        model.background_color[1],
+        model.background_color[2],
+    ));
+    draw.background().color(background_color);
 
     let sides = model.sides;
     let size = model.size;
@@ -57,29 +76,35 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     points[1] = vec2(points[0].x - tan_length, points[0].y - width);
 
-
     let x_off = size + 2.0 * sin_length + tan_length;
     points[2] = vec2(points[0].x + x_off, points[1].y);
 
     points[4] = rotate_around_origin(&points[2], -angle_offset);
 
-    points[3] = rotate_around_origin(&vec2(points[1].x - sin_length * 2.0, points[1].y), -2.0 * angle_offset);
+    points[3] = rotate_around_origin(
+        &vec2(points[1].x - sin_length * 2.0, points[1].y),
+        -2.0 * angle_offset,
+    );
 
     points[5] = vec2(points[0].x + size + sin_length, points[0].y);
 
     points[6] = points[0];
 
+    let mut rotated_points = points;
     for i in 0..sides {
         for p in 0..points.len() {
-            points[p] = rotate_around_origin(&points[p], angle_offset);
+            rotated_points[p] = rotate_around_origin(
+                &points[p],
+                i as f32 * angle_offset + model.angle.to_radians(),
+            );
         }
 
-        let c = (i+1) as f32 / sides as f32;
+        let c = (i + 1) as f32 / sides as f32;
         let color = rgb(c, c, c);
-        draw.polygon().points(points).color(color);
-        draw.polyline().points(points).color(WHITE);
+        draw.polygon().points(rotated_points).color(color);
+        // draw.polyline().points(rotated_points).color(WHITE);
     }
-    
+
     draw.to_frame(app, &frame).unwrap();
     model.ui.draw_to_frame(&frame).unwrap();
 }
@@ -106,5 +131,9 @@ fn update_ui(model: &mut Model) {
             ui.add(Slider::new(&mut model.size, 0.0..=250.0));
             ui.label("Width");
             ui.add(Slider::new(&mut model.width, 0.0..=250.0));
+            ui.label("Angle");
+            ui.add(Slider::new(&mut model.angle, 0.0..=360.0));
+            ui.label("Background Color");
+            ui.color_edit_button_rgb(&mut model.background_color)
         });
 }
